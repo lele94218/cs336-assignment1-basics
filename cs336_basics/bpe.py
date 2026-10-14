@@ -9,11 +9,7 @@ def read_from_file(input_path: str) -> str:
     return text
 
 
-def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
-    # input:             "low low low lower<endoftext>lowerest"
-    # special_tokens:    "<endoftext>"
-    # vocab_size:        260
-
+def train_bpe_with_counter(counts: dict, vocab_size: int, special_tokens: list[str]):
     # 1. create the token table
     # e.g. 1 - 255 -> byte
     # 256 -> b'<endoftext>'
@@ -23,25 +19,6 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
         vocab[i] = bytes([i])
     for tok in special_tokens:
         vocab[len(vocab)] = tok.encode("utf-8")
-
-    # 2. cut the words by special tokens
-    # "low low low lower<endoftext>lowerest"
-    # chunks: ["low low low lower", "lowerest"]
-    raw = read_from_file(input_path)
-    if special_tokens:
-        split_pat = "|".join(re.escape(t) for t in special_tokens)
-        chunks = re.split(split_pat, raw)
-    else:
-        chunks = [raw]
-
-    # 3. tokenized
-    # counter:
-    # { "low": 1, " low": 2, "lower": 1, "lowerest": 1}
-    counts = {}
-    for chunk in chunks:
-        for m in re.finditer(PAT, chunk):
-            key = m.group().encode("utf-8")
-            counts[key] = counts.get(key, 0) + 1
 
     # 4. to single bytes -> frequency
     # { "l o w": 1, " l o w": 2, "l o w e r": 1, "l o w e r e s t": 1}
@@ -59,13 +36,17 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     # (e, r)、(e, s)、(s, t) = 1
 
     merged_count = {}
+    merged_index = {}
     merged_time = vocab_size - len(vocab)
 
-    for p in zip(byte_words, byte_freqs):
+    for i, p in enumerate(zip(byte_words, byte_freqs)):
         byte_word = p[0]
         for j in range(len(byte_word) - 1):
             word_pair = (byte_word[j], byte_word[j + 1])
             merged_count[word_pair] = merged_count.get(word_pair, 0) + p[1]
+            if word_pair not in merged_index:
+                merged_index[word_pair] = set()
+            merged_index[word_pair].add(i)
 
     # find the maximum freq
     # (l, ow) = 5    ← 最多
@@ -73,10 +54,16 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     # (ow, e) = 2
     # ...
     for _ in range(merged_time):
+        # print("merged count: ", merged_count)
+        # print("merged index: ", merged_index)
         if not merged_count:
             break
-        # print("merged count: ", merged_count)
+
         best = max(merged_count, key=lambda p: (merged_count[p], p))
+
+        if merged_count[best] == 0:
+            break
+
         merges.append(best)
         # print("best: ", best)
         best_word = best[0] + best[1]
@@ -84,8 +71,14 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
         # merge ow
         # print("before merged words: ", byte_words)
-        for i in range(len(byte_words)):
+        copy_index = merged_index.get(best, set()).copy()
+        for i in copy_index:
             byte_word = byte_words[i]
+
+            for pair in zip(byte_word, byte_word[1:]):
+                merged_count[pair] -= byte_freqs[i]
+                merged_index[pair].discard(i)
+
             merged_word = []
             j = 0
             while j < len(byte_word):
@@ -97,14 +90,43 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
                     merged_word.append(byte_word[j])
                 j += 1
             byte_words[i] = merged_word
+
+            for pair in zip(merged_word, merged_word[1:]):
+                merged_count[pair] = merged_count.get(pair, 0) + byte_freqs[i]
+                if pair not in merged_index:
+                    merged_index[pair] = set()
+                merged_index[pair].add(i)
         # print("after merged words: ", byte_words)
 
-        # recalculate merged_count
-        merged_count.clear()
-        for p in zip(byte_words, byte_freqs):
-            byte_word = p[0]
-            for j in range(len(byte_word) - 1):
-                word_pair = (byte_word[j], byte_word[j + 1])
-                merged_count[word_pair] = merged_count.get(word_pair, 0) + p[1]
-
     return vocab, merges
+
+
+def cal_counter(raw: str, special_tokens: list[str]):
+    if special_tokens:
+        split_pat = "|".join(re.escape(t) for t in special_tokens)
+        chunks = re.split(split_pat, raw)
+    else:
+        chunks = [raw]
+
+    # 3. tokenized
+    # counter:
+    # { "low": 1, " low": 2, "lower": 1, "lowerest": 1}
+    counts = {}
+    for chunk in chunks:
+        for m in re.finditer(PAT, chunk):
+            key = m.group().encode("utf-8")
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
+    # input:             "low low low lower<endoftext>lowerest"
+    # special_tokens:    "<endoftext>"
+    # vocab_size:        260
+
+    # 2. cut the words by special tokens
+    # "low low low lower<endoftext>lowerest"
+    # chunks: ["low low low lower", "lowerest"]
+    raw = read_from_file(input_path)
+    counts = cal_counter(raw, special_tokens)
+    return train_bpe_with_counter(counts, vocab_size, special_tokens)
