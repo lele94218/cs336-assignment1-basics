@@ -88,8 +88,10 @@ if __name__ == "__main__":
 
     print(f"[{time.perf_counter() - t0:6.4f}s] finish multiprocessing", flush=True)
     vocab, merges = bpe.train_bpe_with_counter(total, 10000, ["<|endoftext|>"])
-    print(list(vocab.items())[:20])
-    print(merges[:20])
-    with open("data/tinystores_bpe.pkl", "wb") as f:
-        pickle.dump((vocab, merges), f)
+    # print(list(vocab.items())[:20])
+    # print(merges[:20])
+    with open("data/vocab.pkl", "wb") as f:
+        pickle.dump(vocab, f)
+    with open("data/merges.pkl", "wb") as f:
+        pickle.dump(merges, f)
     print(f"[{time.perf_counter() - t0:6.4f}s] finish training", flush=True)
