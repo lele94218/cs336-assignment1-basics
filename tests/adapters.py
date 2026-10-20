@@ -3,9 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
-from cs336_basics import bpe
-from cs336_basics import tokenizer
-from cs336_basics import linear
+from cs336_basics import bpe, tokenizer, linear, embedding
 
 import numpy.typing as npt
 import torch
@@ -34,7 +32,7 @@ def run_linear(
 
     lin = linear.Linear(d_in, d_out)
     lin.load_state_dict({"weight": weights})
-    return lin.forward(in_features)
+    return lin(in_features)
 
 
 def run_embedding(
@@ -55,8 +53,10 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
+    emb = embedding.Embedding(vocab_size, d_model)
+    emb.load_state_dict({"weight": weights})
 
-    raise NotImplementedError
+    return emb(token_ids)
 
 
 def run_swiglu(
