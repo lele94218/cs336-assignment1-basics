@@ -147,7 +147,12 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    multi_head_attention = attention.MultiHeadSelfAttention(d_model, num_heads)
+    multi_head_attention.q_proj.weight.data = q_proj_weight
+    multi_head_attention.k_proj.weight.data = k_proj_weight
+    multi_head_attention.v_proj.weight.data = v_proj_weight
+    multi_head_attention.o_proj.weight.data = o_proj_weight
+    return multi_head_attention(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -187,7 +192,13 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    rp = rope.RotaryPositionalEmbedding(theta, d_model // num_heads, max_seq_len)
+    multi_head_attention = attention.MultiHeadSelfAttention(d_model, num_heads, rp=rp)
+    multi_head_attention.q_proj.weight.data = q_proj_weight
+    multi_head_attention.k_proj.weight.data = k_proj_weight
+    multi_head_attention.v_proj.weight.data = v_proj_weight
+    multi_head_attention.o_proj.weight.data = o_proj_weight
+    return multi_head_attention(in_features, token_positions)
 
 
 def run_rope(
