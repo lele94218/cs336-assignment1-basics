@@ -1,9 +1,10 @@
 import torch
-from einops import einsum
+from einops import einsum, rearrange
 
 
-class RotaryPositionalEmbedding:
+class RotaryPositionalEmbedding(torch.nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device: torch.device | None = None):
+        super().__init__()
         assert d_k % 2 == 0
         positions = torch.arange(max_seq_len, device=device, dtype=torch.float32)
         pairs = torch.arange(d_k // 2, device=device, dtype=torch.float32)
@@ -19,3 +20,5 @@ class RotaryPositionalEmbedding:
         b = x[..., 1::2]
         a_h = a * token_cos - b * token_sin
         b_h = a * token_sin + b * token_cos
+
+        return rearrange(torch.stack((a_h, b_h), dim=-1), "... p1 p2 -> ... (p1 p2)")

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
-from cs336_basics import bpe, tokenizer, linear, embedding, rmsnorm, ffn
+from cs336_basics import bpe, tokenizer, linear, embedding, rmsnorm, ffn, rope
 
 import numpy.typing as npt
 import torch
@@ -209,7 +209,8 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    rp = rope.RotaryPositionalEmbedding(theta, d_k, max_seq_len)
+    return rp(in_query_or_key, token_positions)
 
 
 def run_transformer_block(
