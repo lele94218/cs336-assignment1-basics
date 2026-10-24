@@ -37,7 +37,7 @@ class MultiHeadSelfAttention(torch.nn.Module):
         self.q_proj = linear.Linear(d_model, d_model, device, dtype)
         self.k_proj = linear.Linear(d_model, d_model, device, dtype)
         self.v_proj = linear.Linear(d_model, d_model, device, dtype)
-        self.o_proj = linear.Linear(d_model, d_model, device, dtype)
+        self.output_proj = linear.Linear(d_model, d_model, device, dtype)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None):
         seq_len = x.shape[-2]
@@ -50,7 +50,7 @@ class MultiHeadSelfAttention(torch.nn.Module):
         k = rearrange(k, "... key (num_heads d_head) -> ... num_heads key d_head", num_heads=self.num_heads)
         v = rearrange(v, "... value (num_heads d_head) -> ... num_heads value d_head", num_heads=self.num_heads)
         # rope
-        if self.rp is not None and token_positions is not None:
+        if self.rp is not None:
             q = self.rp(q, token_positions)
             k = self.rp(k, token_positions)
         # mask
@@ -61,4 +61,4 @@ class MultiHeadSelfAttention(torch.nn.Module):
 
         # combine
         out = rearrange(out, "... num_heads query d_head -> ... query (num_heads d_head)")
-        return self.o_proj(out)
+        return self.output_proj(out)

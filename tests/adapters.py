@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
-from cs336_basics import bpe, tokenizer, linear, embedding, rmsnorm, ffn, rope, attention
+from cs336_basics import bpe, tokenizer, linear, embedding, rmsnorm, ffn, rope, attention, transformer
 
 import numpy.typing as npt
 import torch
@@ -151,7 +151,7 @@ def run_multihead_self_attention(
     multi_head_attention.q_proj.weight.data = q_proj_weight
     multi_head_attention.k_proj.weight.data = k_proj_weight
     multi_head_attention.v_proj.weight.data = v_proj_weight
-    multi_head_attention.o_proj.weight.data = o_proj_weight
+    multi_head_attention.output_proj.weight.data = o_proj_weight
     return multi_head_attention(in_features)
 
 
@@ -197,7 +197,7 @@ def run_multihead_self_attention_with_rope(
     multi_head_attention.q_proj.weight.data = q_proj_weight
     multi_head_attention.k_proj.weight.data = k_proj_weight
     multi_head_attention.v_proj.weight.data = v_proj_weight
-    multi_head_attention.o_proj.weight.data = o_proj_weight
+    multi_head_attention.output_proj.weight.data = o_proj_weight
     return multi_head_attention(in_features, token_positions)
 
 
@@ -294,7 +294,9 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    block = transformer.TransformerBlock(d_model, num_heads, d_ff, max_seq_len, theta)
+    block.load_state_dict(weights)
+    return block(in_features)
 
 
 def run_transformer_lm(
@@ -400,7 +402,7 @@ def run_rmsnorm(
         RMSNorm of the `in_features`.
     """
     rmsn = rmsnorm.RMSNorm(d_model, eps)
-    rmsn.load_state_dict({"g": weights})
+    rmsn.load_state_dict({"weight": weights})
     return rmsn(in_features)
 
 

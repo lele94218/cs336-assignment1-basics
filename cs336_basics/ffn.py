@@ -6,9 +6,9 @@ from cs336_basics import linear
 class SwiGLU(torch.nn.Module):
     def __init__(self, d_model: int, d_ff: int, device: torch.device | None = None, dtype: torch.dtype | None = None):
         super().__init__()
-        self.w1 = linear.Linear(d_ff, d_model, device, dtype)
-        self.w2 = linear.Linear(d_model, d_ff, device, dtype)
-        self.w3 = linear.Linear(d_ff, d_model, device, dtype)
+        self.w1 = linear.Linear(d_model, d_ff, device, dtype)
+        self.w2 = linear.Linear(d_ff, d_model, device, dtype)
+        self.w3 = linear.Linear(d_model, d_ff, device, dtype)
 
     @staticmethod
     def silu(x: torch.Tensor) -> torch.Tensor:

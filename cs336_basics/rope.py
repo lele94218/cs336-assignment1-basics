@@ -13,7 +13,9 @@ class RotaryPositionalEmbedding(torch.nn.Module):
         self.register_buffer("cos_cache", angles.cos(), persistent=False)
         self.register_buffer("sin_cache", angles.sin(), persistent=False)
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+        if token_positions is None:
+            token_positions = torch.arange(x.shape[-2], device=x.device, dtype=int)
         token_cos = self.cos_cache[token_positions]
         token_sin = self.sin_cache[token_positions]
         a = x[..., 0::2]
