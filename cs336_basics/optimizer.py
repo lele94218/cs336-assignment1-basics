@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 import torch
 import math
 
@@ -42,3 +42,34 @@ class AdamW(torch.optim.Optimizer):
                 state["v"] = v
 
         return loss
+
+
+def get_lr_cosine_schedule(
+    it: int, max_learning_rate: float, min_learning_rate: float, warmup_iters: int, cosine_cycle_iters: int
+) -> float:
+    if it < warmup_iters:
+        return it * max_learning_rate / warmup_iters
+    if it >= warmup_iters and it <= cosine_cycle_iters:
+        return min_learning_rate + 0.5 * (
+            1 + math.cos(math.pi * (it - warmup_iters) / (cosine_cycle_iters - warmup_iters))
+        ) * (max_learning_rate - min_learning_rate)
+
+    return min_learning_rate
+
+
+def gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float, eps: float = 1e-6):
+    parameters = [p for p in parameters if p.grad is not None]
+    if not parameters:
+        return
+    sum = 0
+    for p in parameters:
+        if p.grad is None:
+            continue
+        sum += (p.grad**2).sum()
+    sum = torch.sqrt(sum)
+
+    if sum > max_l2_norm:
+        for p in parameters:
+            if p.grad is None:
+                continue
+            p.grad.mul_(max_l2_norm / (sum + eps))

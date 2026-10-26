@@ -3,7 +3,20 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
-from cs336_basics import bpe, tokenizer, linear, embedding, rmsnorm, ffn, rope, attention, transformer, loss, optimizer
+from cs336_basics import (
+    bpe,
+    tokenizer,
+    linear,
+    embedding,
+    rmsnorm,
+    ffn,
+    rope,
+    attention,
+    transformer,
+    loss,
+    optimizer,
+    data,
+)
 
 import numpy.typing as npt
 import torch
@@ -442,7 +455,7 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
-    raise NotImplementedError
+    return data.get_batch(dataset, batch_size, context_length, device)
 
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
@@ -488,7 +501,7 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    optimizer.gradient_clipping(parameters, max_l2_norm)
 
 
 def get_adamw_cls() -> Any:
@@ -523,7 +536,7 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return optimizer.get_lr_cosine_schedule(it, max_learning_rate, min_learning_rate, warmup_iters, cosine_cycle_iters)
 
 
 def run_save_checkpoint(
