@@ -33,9 +33,26 @@ def parse_args():
     return parser.parse_args()
 
 
+@dataclass
+class GPTConfig:
+    block_size: int = 1024
+    vocab_size: int = 50257
+    n_layer: int = 12
+    n_head: int = 12
+    n_embd: int = 768
+
+
 def main():
     args = parse_args()
-
-    model = transformer.TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta)
+    config = GPTConfig()
+    model = transformer.TransformerLM(
+        vocab_size=config.vocab_size,
+        context_length=config.block_size,
+        d_model=config.n_embd,
+        num_layers=config.n_layer,
+        num_heads=config.n_head,
+        d_ff=config.n_embd * 8 / 3,
+        rope_theta=10000.0,
+    )
 
     dataset = np.memmap(args.train_data, dtype=np.uint16, mode="r")
