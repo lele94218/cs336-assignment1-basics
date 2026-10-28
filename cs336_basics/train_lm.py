@@ -54,12 +54,11 @@ def main():
         d_model=config.n_embd,
         num_layers=config.n_layer,
         num_heads=config.n_head,
-        d_ff=config.n_embd * 8 / 3,
+        d_ff=config.n_embd * 8 // 3,
         rope_theta=10000.0,
     )
-    optim_groups = [
-        {"params": decay_params, "weight_decay": weight_decay},
-    ]
-    optimizer = optimizer.AdamW(param, args.max_lr, args.weight_decay, betas, eps)
+    optimizer = optimizer.AdamW(
+        params=model.parameters(), lr=args.max_lr, weight_decay=args.weight_decay, betas=(0.9, 0.95), eps=1e-8
+    )
 
     dataset = np.memmap(args.train_data, dtype=np.uint16, mode="r")
