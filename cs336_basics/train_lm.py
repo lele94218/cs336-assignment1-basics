@@ -18,6 +18,7 @@ from cs336_basics import (
     data,
     checkpoint,
 )
+from dataclasses import dataclass
 
 
 def parse_args():
@@ -26,6 +27,8 @@ def parse_args():
     parser.add_argument("--train-data", type=str, required=True)
     parser.add_argument("--val-data", type=str, required=True)
     parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--max-lr", type=float, default=6e-4)
+    parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--max-steps", type=int, default=100)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -54,5 +57,9 @@ def main():
         d_ff=config.n_embd * 8 / 3,
         rope_theta=10000.0,
     )
+    optim_groups = [
+        {"params": decay_params, "weight_decay": weight_decay},
+    ]
+    optimizer = optimizer.AdamW(param, args.max_lr, args.weight_decay, betas, eps)
 
     dataset = np.memmap(args.train_data, dtype=np.uint16, mode="r")
