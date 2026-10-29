@@ -172,3 +172,6 @@ cython_debug/
 .env.*
 !.env.example
 .DS_Store
+
+# Training checkpoints saved at repository root
+/checkpoint_*.pt
