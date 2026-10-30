@@ -1,26 +1,18 @@
 import argparse
+import time
 import torch
 
 import numpy as np
 import numpy.typing as npt
 
-
+from cs336_basics.config import GPTConfig, config_args
 from cs336_basics import (
-    bpe,
-    tokenizer,
-    linear,
-    embedding,
-    rmsnorm,
-    ffn,
-    rope,
-    attention,
     transformer,
     loss,
     optimizer,
     data,
     checkpoint,
 )
-from dataclasses import dataclass
 
 
 def parse_args():
@@ -35,15 +27,6 @@ def parse_args():
     parser.add_argument("--max-steps", type=int, default=100)
 
     return parser.parse_args()
-
-
-@dataclass
-class GPTConfig:
-    block_size: int = 1024
-    vocab_size: int = 50257
-    n_layer: int = 12
-    n_head: int = 12
-    n_embd: int = 768
 
 
 def evaluate(
@@ -62,16 +45,24 @@ def evaluate(
     return total_loss / num_batches
 
 
+def synchronize_device(device: str) -> None:
+    device_type = torch.device(device).type
+    if device_type == "mps":
+        torch.mps.synchronize()
+    elif device_type == "cuda":
+        torch.cuda.synchronize(device)
+
+
 def main():
     args = parse_args()
-    config = GPTConfig()
+    config = GPTConfig(**config_args["tiny-stories"])
     model = transformer.TransformerLM(
         vocab_size=config.vocab_size,
         context_length=config.block_size,
         d_model=config.n_embd,
         num_layers=config.n_layer,
         num_heads=config.n_head,
-        d_ff=config.n_embd * 8 // 3,
+        d_ff=config.d_ff,
         rope_theta=10000.0,
     )
     model = model.to(args.device)
@@ -84,8 +75,12 @@ def main():
 
     start_step = 0
     model.train()
+    synchronize_device(args.device)
+    run_start = time.perf_counter()
 
     for step in range(start_step, args.max_steps):
+        synchronize_device(args.device)
+        step_start = time.perf_counter()
         # 3. 计算本步 lr，设置到 optimizer.param_groups
         lr = optimizer.get_lr_cosine_schedule(
             it=step,
@@ -109,18 +104,27 @@ def main():
         # 6. 梯度裁剪 → optimizer.step()
         optimizer.gradient_clipping(parameters=model.parameters(), max_l2_norm=1.0)
         optim.step()
+        synchronize_device(args.device)
+        step_seconds = time.perf_counter() - step_start
+        tokens_per_second = x.numel() / step_seconds
+        elapsed_seconds = time.perf_counter() - run_start
 
         # 7. 定期打印 step、loss.item()、lr
         # 8. 定期调用 evaluate
         # 9. 定期保存 checkpoint
         # 建议 iteration 存已完成更新次数，即 step + 1
         completed_steps = step + 1
-        print(f"step={completed_steps}, train_loss={loss_value.item():.4f}, lr={lr:.6g}")
-        if completed_steps % 20 == 0:
-            # val_loss = evaluate(...)  # 传你的 evaluate 所需参数
+        print(
+            f"step={completed_steps}, train_loss={loss_value.item():.4f}, lr={lr:.6g}, "
+            f"step_time={step_seconds:.3f}s, tok/s={tokens_per_second:,.0f}, "
+            f"elapsed={elapsed_seconds:.1f}s",
+            flush=True,
+        )
+        if completed_steps % 100 == 0:
             val_loss = evaluate(model, val_dataset, args.batch_size, config.block_size, args.device, num_batches=10)
             print(f"step={completed_steps}, train_loss={loss_value.item():.4f}, val_loss={val_loss:.4f}, lr={lr:.6g}")
 
+        if completed_steps % 1000 == 0:
             checkpoint.save_chekpoint(
                 model=model,
                 optimizer=optim,
