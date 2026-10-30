@@ -1,6 +1,8 @@
 import argparse
 import torch
+
 import numpy as np
+import numpy.typing as npt
 
 
 from cs336_basics import (
@@ -44,6 +46,22 @@ class GPTConfig:
     n_embd: int = 768
 
 
+def evaluate(
+    model: torch.nn.Module, dataset: npt.NDArray, batch_size: int, context_length: int, device: str, num_batches=10
+):
+    model.eval()
+    total_loss = 0
+    with torch.no_grad():
+        for _ in range(num_batches):
+            x, y = data.get_batch(dataset, batch_size, context_length, device)
+            logits = model(x)
+            loss_value = loss.cross_entropy(logits, y)
+            total_loss += loss_value.item()
+
+    model.train()
+    return total_loss / num_batches
+
+
 def main():
     args = parse_args()
     config = GPTConfig()
@@ -62,6 +80,7 @@ def main():
     )
 
     dataset = np.load(args.train_data, mmap_mode="r")
+    val_dataset = np.load(args.val_data, mmap_mode="r")
 
     start_step = 0
     model.train()
@@ -96,9 +115,11 @@ def main():
         # 9. 定期保存 checkpoint
         # 建议 iteration 存已完成更新次数，即 step + 1
         completed_steps = step + 1
-        if completed_steps % 1 == 0:
+        print(f"step={completed_steps}, train_loss={loss_value.item():.4f}, lr={lr:.6g}")
+        if completed_steps % 20 == 0:
             # val_loss = evaluate(...)  # 传你的 evaluate 所需参数
-            print(f"step={completed_steps}, train_loss={loss_value.item():.4f}, lr={lr:.6g}")
+            val_loss = evaluate(model, val_dataset, args.batch_size, config.block_size, args.device, num_batches=10)
+            print(f"step={completed_steps}, train_loss={loss_value.item():.4f}, val_loss={val_loss:.4f}, lr={lr:.6g}")
 
             checkpoint.save_chekpoint(
                 model=model,
